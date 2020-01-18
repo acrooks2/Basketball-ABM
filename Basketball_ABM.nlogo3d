@@ -1,0 +1,1660 @@
+extensions [gis]
+
+;;;; globals
+
+globals [
+  home_half away_half home_key away_key home_ok away_ok home_3 away_3 home_restrict away_restrict shot_clock home_board away_board
+  s%3                        ;; 3 point fg%
+  s%r                        ;; Restricted fg%
+  s%mr                        ;; Mid court fg%
+  s%hc                       ;; Half court fg%
+  s%k                        ;; Key fg%
+  s%bc                       ;; back court fg%
+  three_pointer
+  home_score
+  away_score
+  home_poss                  ;; CAREFUL With this. confused it will player variable of  teamposs?
+  status
+  inb1
+  inb
+  tover
+  callPass
+  check
+  shot?                  ; global to say player has taken a shot
+  pass?                  ; global to say player has passed
+  intercept_options
+  interceptor
+  threshold
+  steals
+  scalled
+  max_lead
+  s_diff
+  lead_changes
+  leading_s leading_e
+  max_streak
+]
+;;;; breeds
+
+patches-own [scoring% location_des]
+breed [players player ]
+
+
+;;;; ownership
+players-own [
+  home?                       ;; home team
+  spot                        ;; position for player
+  spotx                       ;; x on court for your offenseive position
+  spoty                       ;; y on court for your offenseive position
+  spotz                       ;; z on court for your offenseive position
+  location
+  distance_to_location
+  speed
+  opp_location
+  hoop
+  opp_hoop
+  shooting_location
+  shooting_color
+  shooting_prob
+  teamposs?                        ;; home team
+  poss?                        ;; home team
+  score_history
+  score                       ;; home team
+  attempts
+  fg%
+  made                       ;; home team
+  passes                        ;; home team
+  hot_streak                     ;; home team
+  pressure                        ;; home team
+  opponent                        ;; who you have to guard
+  gun_player
+  shoot_pass
+  time_left
+  players_in_prox
+  team_mate_performance
+  pass_options
+  called   ;; checked if procedure called
+  pass_to
+  attract_to_pass  ;;;need to de decided on something else
+  offrebound
+  defrebound
+  tov
+  team%
+  oppy
+  hh
+]
+
+to set-up
+  clear-all
+  ask patches [draw_court]
+  des
+  score%
+  hatch_players
+  ask players [court_coords]
+  ask players [set_oppenents]
+  random_possession
+  reset-ticks
+end
+
+to draw_court
+  if pxcor <= 50 and pxcor >= -50  and pycor <= 0 and pycor > -18 and pzcor = -6  [set pcolor white - 2]  ;; mid court white 9.9 (home)
+  if pxcor >= -8 and pxcor <= 8 and pycor < -28 and pzcor = -6  [set pcolor yellow ]        ;; the key yellow 45
+  if pxcor >= -2 and pxcor <= 2 and pycor < -42 and pzcor = -6  [set pcolor yellow - 1 ]     ;; the restricted
+
+  if pxcor >= -8 and pxcor <= 8 and pycor > -29 and pycor < -22 and pzcor = -6  [set pcolor yellow + 3]   ;; mid
+  if pxcor < -8 and pxcor >= -22  and pycor < -28 and pzcor = -6  [set pcolor yellow + 3]  ;; mid range
+  if pxcor <= 22 and pxcor > 8  and pycor < -28 and pzcor = -6  [set pcolor yellow + 3]    ;; mid
+
+  if pxcor < -8 and pxcor >= -22  and pycor > -29  and pycor < -22 and pzcor = -6  [set pcolor yellow + 2] ;; 3 point
+  if pxcor <= 22 and pxcor > 8  and pycor > -29  and pycor < -22 and pzcor = -6  [set pcolor yellow + 2]   ;; 3 point
+  if pxcor < -22 and pxcor >= -35  and pycor < -22 and pzcor = -6  [set pcolor yellow + 2]   ;; 3 point
+  if pxcor <= 50 and pxcor > 22  and pycor < -22 and pzcor = -6  [set pcolor yellow + 2]     ;; 3 point
+  if pxcor <= 50 and pxcor >= -50  and pycor <= -18 and pycor > -23  and pzcor = -6  [set pcolor yellow + 2]   ;; 3 point
+
+  if pxcor <= 50 and pxcor >= -50  and pycor > 0 and pycor < 18 and pzcor = -6 [set pcolor white - 1]  ;; mid court white 9.9 away
+  if pxcor >= -8 and pxcor <= 8  and pycor > 28 and pzcor = -6  [set pcolor cyan ]    ;; the key   cyan 85
+  if pxcor >= -2 and pxcor <= 2  and pycor > 42 and pzcor = -6  [set pcolor cyan + 1]    ;; the restricted
+
+  if pxcor < -8 and pxcor >= -22  and pycor > 28 and pzcor = -6  [set pcolor cyan - 1]    ;; mid
+  if pxcor <= 22 and pxcor > 8  and pycor > 28 and pzcor = -6  [set pcolor cyan - 1]      ;; mid
+  if pxcor >= -8 and pxcor <= 8 and pycor < 29 and pycor > 22 and pzcor = -6  [set pcolor cyan - 1  ]   ;; mid
+
+  if pxcor < -8 and pxcor >= -22  and pycor < 30 and pycor > 18 and pzcor = -6  [set pcolor cyan + 2]  ; 3
+  if pxcor <= 22 and pxcor > 8  and pycor < 30 and pycor > 18 and pzcor = -6  [set pcolor cyan + 2]   ; 3
+  if pxcor < -22 and pxcor >= -35  and pycor > 22 and pzcor = -6 [set pcolor cyan + 2]   ; 3
+
+  if pxcor <= 50 and pxcor > 22  and pycor > 22 and pzcor = -6  [set pcolor cyan + 2]    ; 3
+  if pxcor <= 50 and pxcor >= -50  and pycor >= 18 and pycor < 23  and pzcor = -6 [set pcolor cyan + 2]  ; 3
+
+  if pzcor > 2 and pxcor >= -2 and pxcor <= 2 and pycor = -47 [set pcolor grey - 1 ]   ;; back board
+  if pzcor > 2 and pxcor >= -2 and pxcor <= 2 and pycor = 47 [set pcolor grey + 1]     ;; back board
+
+end
+
+to des
+  set home_half patches with [pcolor = white - 2  ]    ;; I think this can go
+  set away_half patches with [pcolor = white - 1 ]     ;; I think this can go
+  set home_key patches with [pcolor = yellow ]
+  set away_key patches with [pcolor =  cyan]
+  set home_ok patches with [pcolor = yellow + 3 ]
+  set away_ok patches with [pcolor = cyan - 1 ]
+  set home_3 patches with [pcolor = yellow + 2]
+  set away_3 patches with [pcolor = cyan + 2 ]
+  set home_restrict patches with [pcolor = yellow - 1 ]
+  set away_restrict patches with [pcolor = cyan + 1 ]
+
+  set home_board patches with [pcolor =  grey + 1 ]
+  set away_board patches with [pcolor =  grey - 1 ]
+end
+
+to score%
+  set three_pointer false
+  set s%3 .33
+  set s%r .7
+  set s%mr .43
+  set s%hc .02
+  set s%bc 0
+  set s%k .50
+end
+
+to hatch_players
+  set shot_clock 24
+  let p 0
+  while [p < 10 ]
+  [
+    create-players 1 [
+
+      set shape "person"
+      set spot p
+      set poss? false
+      set teamposs? false
+      set shot? false
+      set speed 5           ;;; should be 22 for 4 minute mile pace
+      set score_history []
+      set score 0
+      set attempts 0
+      set made 0
+      set fg% 0
+      set passes 0
+      set hot_streak 0
+      set pressure 0
+      set gun_player 0
+      set players_in_prox []
+      ifelse hot_hand_factor = 0
+      [set hh 0   ]
+      [set hh 1 / hot_hand_factor ]
+
+      ifelse p < 5
+      [
+        set home? true
+        setxyz (0 + p) 2 -4
+        set color red
+        set size 3
+        set hoop [0 -45 3]
+        set opp_hoop [0 45 3 ]
+      ]
+      [
+        set home? false
+        setxyz (0 + p) -2 -4
+        set color blue
+        set size 3
+        set hoop [0 45 3 ]
+        set opp_hoop [0 -45 3 ]
+      ]
+    ]
+  set p (p + 1)
+  ]
+
+  ask players [
+    if spot = home_gun or spot = away_gun [set gun_player true]       ;;;;
+  ]
+end
+
+to court_coords
+  if spot = 0 [ set  spotx 7    set spoty -33   set spotz -4 ]
+  if spot = 1 [ set  spotx -7   set spoty -33   set spotz -4 ]
+  if spot = 2 [ set  spotx 6    set spoty -39   set spotz -4 ]
+  if spot = 3 [ set  spotx -6   set spoty -39   set spotz -4 ]
+  if spot = 4 [ set  spotx 5    set spoty -42   set spotz -4 ]
+
+  if spot = 5 [ set  spotx 7    set spoty 33  set spotz -4 ]
+  if spot = 6 [ set  spotx -7   set spoty 33   set spotz -4 ]
+  if spot = 7 [ set  spotx 6    set spoty 39   set spotz -4 ]
+  if spot = 8 [ set  spotx -6   set spoty 39   set spotz -4 ]
+  if spot = 9 [ set  spotx 4    set spoty 42   set spotz -4 ]
+
+  set location []
+  set location lput spotx location
+  set location lput spoty location
+  set location lput spotz location
+end
+
+
+to random_possession
+  ask one-of players [
+    set poss? true
+    set shape "bballer"
+
+    ifelse spot < 5
+    [
+      ask players with [home? = true] [set teamposs? true set home_poss true]
+      ask players with [home? = false] [set teamposs? false]
+    ]
+    [
+      ask players with [home? = true] [set teamposs? false set home_poss false]
+      ask players with [home? = false] [set teamposs? true ]
+    ]
+  ]
+end
+
+to set_oppenents
+  ifelse home? = true
+  [set opponent spot + 5]
+  [set opponent spot - 5]
+  set opp_location []
+end
+
+to step
+  ifelse home_score - away_score > 0
+  [set leading_s 0]
+  [set leading_s 1]
+  strategy
+  stats
+  tick
+end
+
+to strategy
+  let ch count players with [poss? = true]
+  if ch > 1 [stop]
+  ; set shot_clock shot_clock - 1
+  set shot_clock shot_clock - .5
+  let stealchance random-float 10
+  if stealchance  < .03 [
+    steal
+ ifelse home_poss  = true
+    [set home_poss false]
+    [set home_poss true ]
+; stop
+ ]
+  set status 0
+  if shot_clock < 2 or shot? = true
+  [
+    ask players with [poss? = true]
+    [ shoot
+      set shot_clock 24
+    ]
+  ]
+  ask players with [teamposs? = true  ]
+    [
+     ;; set attract_to_pass random 5   ;;;;;;  change
+      ifelse gun_player = true
+      [set attract_to_pass fg% + team% + ((hot_streak / streak_size) * hh) + (bias_to_gun)]
+      [set attract_to_pass fg% + team% + ((hot_streak / streak_size) * hh)]
+      ;; fg%
+      ;; hot sreak
+      ;; gun player
+      ;; score
+
+    ]
+  if status = 1 [ask players [inbound]
+    ifelse home_poss  = true  ;  must call it here and not in the procedure
+    [set home_poss false]
+    [set home_poss true ]
+    stop]
+  if status = -1  [rebound ]   ;; added stop
+
+  if status = -2 [ask players [rebound_turnover]
+    ifelse home_poss  = true
+    [set home_poss false]
+    [set home_poss true ]
+    stop ]
+
+  if status = 0 [
+    ask players with [teamposs? = true ]
+    [offense]
+    ask players with [teamposs? = false ]
+    [defense]
+    ask players with [teamposs? = true ]
+    [pass_or_shoot]
+  ]
+  if pass? = true [pass]
+
+end
+
+to steal
+  set intercept_options []
+
+  ask players with [poss? = true] [
+      let y get_pass_to_opp opponent
+      set intercept_options lput y intercept_options
+  ]
+
+  set interceptor one-of intercept_options
+
+ ifelse home_poss = false
+    [
+      set steals steals + 1
+      ask players with [home? = true]
+      [ set teamposs? true
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+      ask players with [spot = interceptor]
+        [ set shape "bballer"
+          set poss? true]
+
+      ask players with [home? = false]
+      [set teamposs? false
+      set poss? false]
+    ]
+
+    [ set steals steals + 1
+      ask players with [home? = true]
+      [set teamposs? false
+        set poss? false ]
+
+      ask players with [home? = false]
+      [set teamposs? true
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+      ask players with [spot = interceptor]
+        [set poss? true
+          set shape "bballer"]
+    ]
+
+end
+
+to offense
+  let x (random 30) - 15      ;random ((n*2) +1)  - n
+  let y (random 8) - 4
+  ;;; add check to stop running through.....
+  set pitch towards-pitch-xyz-nowrap (spotx + x) (spoty + y) -4
+  set heading towardsxy-nowrap (spotx + x) (spoty + y)
+  forward speed
+  set location []
+  set location lput xcor location
+  set location lput ycor location
+  set location lput zcor location
+  set distance_to_location distancexyz-nowrap (spotx + x) (spoty + y) -4
+
+  ;;;  need to look to drive
+end
+
+to pass_or_shoot
+  ask players with [poss? = true]
+
+  [ set shooting_location []
+    set shooting_location get_my_location spot
+    set shooting_location but-last shooting_location
+    let tempx item 0 shooting_location
+    let tempy item 1 shooting_location
+    let tempz  -6
+
+    set shooting_color [pcolor] of patch tempx tempy tempz
+
+    ifelse spot < 5  [
+
+      if shooting_color = 9.9 - 1 or shooting_color = 85 - 1 or shooting_color = 85 + 2 or shooting_color = 85 or shooting_color = 85 + 1  ; defines back court
+
+      [set shooting_prob  s%bc]
+
+      if shooting_color = 9.9 - 2  [set shooting_prob  s%hc set three_pointer true   ]  ; half court
+      if shooting_color = 45 + 3   [set shooting_prob s%mr set three_pointer false ]  ; mid range
+      if shooting_color = 45 + 2   [set shooting_prob s%3 set three_pointer true] ; 3 point
+      if shooting_color = 45       [set shooting_prob s%k set three_pointer false ]; key
+      if shooting_color = 45 - 1   [set shooting_prob s%r set three_pointer false]
+    ]
+
+    [
+      if shooting_color = 9.9 - 2 or shooting_color = 45 + 3 or shooting_color = 45 + 2 or shooting_color = 45 or  shooting_color = 45 - 1 ; defines back court
+      [set shooting_prob  s%bc]
+
+      if shooting_color = 9.9 - 1 [set shooting_prob  s%hc set three_pointer true   ]  ; half court
+      if shooting_color = 85 - 1 [set shooting_prob s%mr set three_pointer false ]  ; mid range
+      if shooting_color = 85 + 2 [set shooting_prob s%3 set three_pointer true] ; 3 point
+      if shooting_color = 85     [set shooting_prob s%k set three_pointer false ]; key
+      if shooting_color = 85 + 1 [set shooting_prob s%r set three_pointer false]
+    ]
+
+    set time_left shot_clock
+
+    ifelse gun_player = true [let fran 1
+      set shoot_pass log ((( 1 / (time_left * .2)) + (shooting_prob * 2)) ^ (1 + ((hot_streak / streak_size) * (hh)) + (bias_to_gun * fran))) 10
+     ; set shoot_pass ((( 1 / (time_left * .1)) + (hot_streak * hot_hand_factor) + (bias_to_gun * fran) + (shooting_prob * 4))) ^ 2 / 10
+    ][
+
+    let fran 0
+
+    set shoot_pass log ((( 1 / (time_left * .2)) + (shooting_prob * 2)) ^ (1 + ((hot_streak / streak_size) * (hh)) + (bias_to_gun * fran))) 10
+    ;set shoot_pass ((( 1 / (time_left * .1)) + (hot_streak * hot_hand_factor) + (bias_to_gun * fran) + (shooting_prob * 4)) ^ 2) / 10
+    ]
+
+    if shooting_prob != s%bc                      ;; stops back court stupidity
+    [
+      set threshold random-float 2 / (1 / time_left)  ;; needs to be tighter
+      ifelse shoot_pass > threshold         ;;;
+      [set shot? true
+        set shoot_pass 0]
+      [set pass? true
+        set shoot_pass 0]
+    ]
+  ]
+end
+
+to pass
+  ask players with [poss? = true]
+  [ set called called + 1   ;;; seeing how often called
+    let team home?
+    set players_in_prox other players with [home? = team and distance_to_location < 3] in-cone 6 310     ;;;; sets sensensitivity of whether to pass or shoot
+    if any? players_in_prox
+
+    [
+      ; set pass_to one-of players_in_prox
+      set pass_to max-one-of players_in_prox [attract_to_pass]
+      set intercept_options []
+      let y get_pass_to_opp opponent
+      set intercept_options lput y intercept_options
+      ask pass_to [
+        let x get_pass_to_opp opponent
+        set intercept_options lput x intercept_options
+      ]
+
+      set interceptor one-of intercept_options
+
+      let ps random-float 1
+
+      ifelse ps > .05 [
+
+        ask pass_to [
+          set shape "bballer"
+          set poss? true
+        ]
+        set shape "person"
+        set poss? false
+        set passes passes + 1
+      ]
+      [
+        set shape "person"
+        set poss? false
+        set tov tov + 1
+        set passes passes + 1
+        in_playto    ]
+    ]
+  ]
+  set pass? false
+end
+
+to-report get_pass_to_opp [opp_spot]
+  report [spot] of player opponent
+
+end
+
+
+to in_playto
+  ifelse home_poss = false
+    [
+      set tover tover + 1
+      set home_poss  true          ;;; bug fix August 28 -> flag not changed
+      ask players with [home? = true]
+      [ set teamposs? true
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+      ask players with [spot = interceptor]
+        [ set shape "bballer"
+          set poss? true]
+
+      ask players with [home? = false]
+      [set teamposs? false
+      ]
+    ]
+
+    [ set tover tover + 1
+      set home_poss  false          ;; bug fix August 28 -> flag not changed
+      ask players with [home? = true]
+      [set teamposs? false]
+
+      ask players with [home? = false]
+      [set teamposs? true
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+      ask players with [spot = interceptor]
+        [set poss? true
+          set shape "bballer"]
+    ]
+end
+
+to shoot
+
+  ifelse home_poss = true
+  [
+    let hoopx item 0 hoop
+    let hoopy item 1 hoop
+    let hoopz item 2 hoop
+    facexyz hoopx hoopy hoopz]
+  [
+    let hoopx item 0 opp_hoop
+    let hoopy item 1 opp_hoop
+    let hoopz item 2 opp_hoop
+    facexyz hoopx hoopy hoopz]
+
+  set shooting_location []
+  set shooting_location get_my_location spot
+  set shooting_location but-last shooting_location
+  let tempx item 0 shooting_location
+  let tempy item 1 shooting_location
+  let tempz  -6
+
+  set shooting_color [pcolor] of patch tempx tempy tempz
+
+  if shooting_color = 9.9 - 2 or shooting_color = 9.9 - 1 [set shooting_prob  s%hc    ]  ; half court
+  if shooting_color = 45 + 3  or  shooting_color = 85 - 1 [set shooting_prob s%mr  ]  ; mid range
+  if shooting_color = 45 + 2  or  shooting_color = 85 + 2 [set shooting_prob s%3 set three_pointer true] ; 3 point
+  if shooting_color = 45  or  shooting_color = 85 [set shooting_prob s%k  ]; key
+  if shooting_color = 45 - 1  or  shooting_color = 85 + 1 [set shooting_prob s%r ] ;  restricted
+
+  let prob random-float 1
+
+  ;let prob random-float 0
+  set attempts attempts + 1
+  if three_pointer = true and prob <= shooting_prob
+
+  [ set status 1
+    set made made + 1
+    set hot_streak hot_streak + 1
+    if hot_streak > max_streak [set max_streak hot_streak]
+    set poss? false
+    set shape "person"
+    set score_history lput 3 score_history
+
+    ifelse home_poss = true
+    [ set home_score home_score + 3 ]
+    [ set away_score away_score + 3 ]
+  ]
+
+  if three_pointer = false and prob <= shooting_prob
+    [ set status 1
+      set made made + 1
+      set hot_streak hot_streak + 1
+      if hot_streak > max_streak [set max_streak hot_streak]
+      set poss? false
+      set shape "person"
+      set score_history lput 2 score_history
+
+      ifelse home_poss = true
+      [ set home_score home_score + 2]
+      [ set away_score away_score + 2]
+    ]
+
+  if prob > shooting_prob  [
+    set status -1
+    set hot_streak 0
+    set poss? false
+    set shape "person"
+    set score_history lput 0 score_history
+  ]
+
+  set score sum score_history
+  set fg% made / attempts
+  if prob <= shooting_prob
+  [
+  ifelse home? = true
+  [ set team% score / home_score]
+  [ set team% score / away_score]
+  ]
+
+  set pitch 0      ;; check
+  set shot? false
+end
+
+to-report get_my_location [my_spot]
+  report [location] of player spot
+
+end
+
+to inbound
+  ifelse home_poss = false
+    [
+      set inb inb + 1
+      ask players with [home? = true]
+      [ set teamposs? true
+        let x random 5
+        setxyz x (47 - x) -4
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+
+      ask players with [spot = 0]
+        [ set shape "bballer"
+          set poss? true]
+
+      ask players with [home? = false]
+      [set teamposs? false
+      ]
+    ]
+
+    [ set inb1 inb1 + 1
+      ask players with [home? = true]
+      [set teamposs? false]
+
+      ask players with [home? = false]
+      [set teamposs? true
+        let x (1 + random 5 )
+        setxyz x (-47 + x) -4
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+
+      ask players with [spot = 5]
+        [set poss? true
+          set shape "bballer"]
+    ]
+end
+
+to rebound
+  ask players [
+    ifelse home_poss = true
+    [
+      let hoopx item 0 hoop
+      let hoopy item 1 hoop
+      let hoopz item 2 hoop
+      facexyz hoopx hoopy -4
+      set pitch towards-pitch-xyz-nowrap hoopx hoopy -4
+      set heading towardsxy-nowrap hoopx hoopy
+      forward 1
+    ]
+    [
+      let hoopx item 0 opp_hoop
+      let hoopy item 1 opp_hoop
+      let hoopz item 2 opp_hoop
+      facexyz hoopx hoopy -4
+      set pitch towards-pitch-xyz-nowrap hoopx hoopy -4
+      set heading towardsxy-nowrap hoopx hoopy
+      forward 1
+    ]
+  ]
+
+  let off_chance     random-float 1
+  ifelse off_chance < .24
+
+  [ set check check + 1
+    ask one-of players with [teamposs? = true]
+    [set poss? true
+      set shape "bballer"
+      set offrebound  offrebound + 1]
+  ]
+  [ ask one-of players with [teamposs? = false]
+    [
+      set defrebound  defrebound + 1]
+  set status -2
+  ]
+
+end
+
+to rebound_turnover
+
+  ifelse home_poss = false
+    [
+      set inb inb + 1
+   ;   set home_poss true                      ;;;; bug fix August 28  isuue related to not changing home_poss
+      ask players with [home? = true]
+      [ set teamposs? true
+        let x random 5
+        setxyz x (45 - x) -4
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+      ask players with [spot = 0]
+        [ set shape "bballer"
+          set poss? true]
+
+      ask players with [home? = false]
+      [set teamposs? false
+      ]
+    ]
+
+    [ set inb1 inb1 + 1
+   ;   set home_poss  false                ;;;; bug fix August 28
+      ask players with [home? = true]
+      [set teamposs? false]
+
+      ask players with [home? = false]
+      [set teamposs? true
+        let x (1 + random 5 )
+        setxyz x (-45 + x) -4
+        set pitch towards-pitch-xyz-nowrap spotx spoty -4
+        set heading towardsxy-nowrap spotx spoty
+        facexyz spotx spoty -4
+      ]
+      ask players with [spot = 5]
+        [set poss? true
+          set shape "bballer"]
+    ]
+  set status 0
+end
+
+to defense
+  set opp_location get_opponent_location opponent
+  let oppx item 0 opp_location
+  ifelse home? = true [set oppy (item 1 opp_location) + 1 ][set oppy  (item 1 opp_location) - 1 ]
+  set pitch towards-pitch-xyz-nowrap oppx oppy -4
+  set heading towardsxy-nowrap oppx oppy
+  forward speed
+
+end
+
+to-report get_opponent_location [opp_spot]
+  report [location] of player opponent
+
+end
+
+to stats
+  let x abs (  home_score - away_score)
+  if x > max_lead [ set max_lead x]
+
+  ifelse home_score - away_score > 0
+  [set leading_e 0]
+  [set leading_e 1]
+  if leading_s != leading_e [ set lead_changes lead_changes + 1 ]
+
+
+
+end
+
+to go
+  ; if ticks > 2879 [stop]
+  if ticks > 5759 [stop]
+  step
+
+end
+@#$#@#$#@
+GRAPHICS-WINDOW
+0
+0
+673
+1292
+-1
+-1
+13.0
+1
+10
+1
+1
+1
+0
+1
+1
+1
+-25
+25
+-48
+48
+-6
+6
+1
+0
+1
+ticks
+30.0
+
+BUTTON
+20
+15
+93
+48
+NIL
+set-up
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+95
+15
+158
+48
+NIL
+step
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+159
+15
+222
+48
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+MONITOR
+528
+10
+608
+55
+shot clock
+shot_clock
+17
+1
+11
+
+MONITOR
+608
+10
+694
+55
+home score
+home_score
+17
+1
+11
+
+MONITOR
+694
+10
+775
+55
+away score
+away_score
+17
+1
+11
+
+PLOT
+391
+124
+644
+298
+Score
+NIL
+NIL
+0.0
+5760.0
+0.0
+150.0
+false
+true
+"" ""
+PENS
+"home" 1.0 0 -16777216 true "" "plot home_score"
+"away" 1.0 0 -7500403 true "" "plot away_score"
+
+PLOT
+644
+125
+871
+298
+Score difference
+NIL
+NIL
+0.0
+5760.0
+-30.0
+30.0
+false
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot home_score - away_score"
+
+PLOT
+392
+453
+641
+605
+Player Field Goal Percentage (Home)
+NIL
+fg%
+0.0
+5760.0
+0.0
+1.0
+false
+false
+"ask players with [home? = true] [\n  create-temporary-plot-pen (word who)\n  set-plot-pen-color color\n]" "ask players with [home? = true ][\n  set-current-plot-pen (word who)\n  plot (fg%)\n]"
+PENS
+
+PLOT
+654
+454
+885
+604
+Player Field Goal Percentage (Away)
+NIL
+fg%
+0.0
+5760.0
+0.0
+1.0
+false
+false
+"ask players with [home? = false] [\n  create-temporary-plot-pen (word who)\n  set-plot-pen-color color\n]" "ask players with [home? = false] [\n  set-current-plot-pen (word who)\n  plot (fg%)\n]"
+PENS
+
+SLIDER
+19
+78
+191
+111
+hot_hand_factor
+hot_hand_factor
+0
+1
+0.4
+.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+19
+146
+191
+179
+bias_to_gun
+bias_to_gun
+0
+1
+0.0
+.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+19
+112
+191
+145
+streak_size
+streak_size
+1
+10
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+197
+78
+255
+123
+In poss
+count players with [poss? = true]
+17
+1
+11
+
+INPUTBOX
+26
+217
+93
+277
+home_gun
+0.0
+1
+0
+Number
+
+INPUTBOX
+95
+217
+163
+277
+away_gun
+5.0
+1
+0
+Number
+
+MONITOR
+396
+10
+507
+55
+Time Remaining
+(2880 * 2) - ticks
+17
+1
+11
+
+PLOT
+392
+301
+646
+451
+Scoring Events
+NIL
+NIL
+0.0
+5760.0
+0.0
+130.0
+false
+true
+"" ""
+PENS
+"home" 1.0 0 -16777216 true "" "plot sum [attempts] of players with [home? = true]"
+"away" 1.0 0 -7500403 true "" "plot sum [attempts] of players with [home? = false]"
+
+MONITOR
+90
+316
+147
+361
+passes
+sum [passes] of players
+17
+1
+11
+
+PLOT
+648
+302
+848
+452
+Score Event Difference
+NIL
+NIL
+0.0
+5760.0
+-10.0
+10.0
+false
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot sum [attempts] of players with [home? = true] - sum [attempts] of players with [home? = false]"
+
+MONITOR
+776
+10
+868
+55
+Score Events
+sum [attempts] of players
+17
+1
+11
+
+MONITOR
+392
+77
+494
+122
+Off_Rebounds
+sum [offrebound] of players
+17
+1
+11
+
+MONITOR
+497
+77
+598
+122
+Def_rebounds
+sum [defrebound] of players
+17
+1
+11
+
+MONITOR
+780
+59
+865
+104
+Shots made
+sum [made] of players
+17
+1
+11
+
+MONITOR
+699
+60
+770
+105
+Turnover
+tover
+17
+1
+11
+
+MONITOR
+636
+58
+693
+103
+Steals
+steals
+17
+1
+11
+
+PLOT
+4
+408
+204
+558
+plot 1
+NIL
+NIL
+0.0
+2.0
+0.0
+2.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count players with [poss? = true]"
+
+MONITOR
+907
+70
+964
+115
+FG%
+sum [made] of players / sum [attempts] of players
+2
+1
+11
+
+@#$#@#$#@
+## WHAT IS IT?
+
+(a general understanding of what the model is trying to show or explain)
+
+## HOW IT WORKS
+
+(what rules the agents use to create the overall behavior of the model)
+
+## HOW TO USE IT
+
+(how to use the model, including a description of each of the items in the Interface tab)
+
+## THINGS TO NOTICE
+
+(suggested things for the user to notice while running the model)
+
+## THINGS TO TRY
+
+(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+
+## EXTENDING THE MODEL
+
+(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+
+## NETLOGO FEATURES
+
+(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+
+## RELATED MODELS
+
+(models in the NetLogo Models Library and elsewhere which are of related interest)
+
+## CREDITS AND REFERENCES
+
+(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+@#$#@#$#@
+default
+true
+0
+Polygon -7500403 true true 150 5 40 250 150 205 260 250
+
+airplane
+true
+0
+Polygon -7500403 true true 150 0 135 15 120 60 120 105 15 165 15 195 120 180 135 240 105 270 120 285 150 270 180 285 210 270 165 240 180 180 285 195 285 165 180 105 180 60 165 15
+
+arrow
+true
+0
+Polygon -7500403 true true 150 0 0 150 105 150 105 293 195 293 195 150 300 150
+
+bballer
+false
+2
+Circle -7500403 true false 110 5 80
+Polygon -7500403 true false 105 90 120 195 90 285 105 300 135 300 150 225 165 300 195 300 210 285 180 195 195 90
+Rectangle -7500403 true false 127 79 172 94
+Polygon -7500403 true false 195 90 240 150 225 180 165 105
+Polygon -7500403 true false 105 90 60 150 75 180 135 105
+Circle -955883 true true 30 150 60
+
+box
+false
+0
+Polygon -7500403 true true 150 285 285 225 285 75 150 135
+Polygon -7500403 true true 150 135 15 75 150 15 285 75
+Polygon -7500403 true true 15 75 15 225 150 285 150 135
+Line -16777216 false 150 285 150 135
+Line -16777216 false 150 135 15 75
+Line -16777216 false 150 135 285 75
+
+bug
+true
+0
+Circle -7500403 true true 96 182 108
+Circle -7500403 true true 110 127 80
+Circle -7500403 true true 110 75 80
+Line -7500403 true 150 100 80 30
+Line -7500403 true 150 100 220 30
+
+butterfly
+true
+0
+Polygon -7500403 true true 150 165 209 199 225 225 225 255 195 270 165 255 150 240
+Polygon -7500403 true true 150 165 89 198 75 225 75 255 105 270 135 255 150 240
+Polygon -7500403 true true 139 148 100 105 55 90 25 90 10 105 10 135 25 180 40 195 85 194 139 163
+Polygon -7500403 true true 162 150 200 105 245 90 275 90 290 105 290 135 275 180 260 195 215 195 162 165
+Polygon -16777216 true false 150 255 135 225 120 150 135 120 150 105 165 120 180 150 165 225
+Circle -16777216 true false 135 90 30
+Line -16777216 false 150 105 195 60
+Line -16777216 false 150 105 105 60
+
+car
+false
+0
+Polygon -7500403 true true 300 180 279 164 261 144 240 135 226 132 213 106 203 84 185 63 159 50 135 50 75 60 0 150 0 165 0 225 300 225 300 180
+Circle -16777216 true false 180 180 90
+Circle -16777216 true false 30 180 90
+Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
+Circle -7500403 true true 47 195 58
+Circle -7500403 true true 195 195 58
+
+circle
+false
+0
+Circle -7500403 true true 0 0 300
+
+circle 2
+false
+0
+Circle -7500403 true true 0 0 300
+Circle -16777216 true false 30 30 240
+
+cow
+false
+0
+Polygon -7500403 true true 200 193 197 249 179 249 177 196 166 187 140 189 93 191 78 179 72 211 49 209 48 181 37 149 25 120 25 89 45 72 103 84 179 75 198 76 252 64 272 81 293 103 285 121 255 121 242 118 224 167
+Polygon -7500403 true true 73 210 86 251 62 249 48 208
+Polygon -7500403 true true 25 114 16 195 9 204 23 213 25 200 39 123
+
+cylinder
+false
+0
+Circle -7500403 true true 0 0 300
+
+dot
+false
+0
+Circle -7500403 true true 90 90 120
+
+face happy
+false
+0
+Circle -7500403 true true 8 8 285
+Circle -16777216 true false 60 75 60
+Circle -16777216 true false 180 75 60
+Polygon -16777216 true false 150 255 90 239 62 213 47 191 67 179 90 203 109 218 150 225 192 218 210 203 227 181 251 194 236 217 212 240
+
+face neutral
+false
+0
+Circle -7500403 true true 8 7 285
+Circle -16777216 true false 60 75 60
+Circle -16777216 true false 180 75 60
+Rectangle -16777216 true false 60 195 240 225
+
+face sad
+false
+0
+Circle -7500403 true true 8 8 285
+Circle -16777216 true false 60 75 60
+Circle -16777216 true false 180 75 60
+Polygon -16777216 true false 150 168 90 184 62 210 47 232 67 244 90 220 109 205 150 198 192 205 210 220 227 242 251 229 236 206 212 183
+
+fish
+false
+0
+Polygon -1 true false 44 131 21 87 15 86 0 120 15 150 0 180 13 214 20 212 45 166
+Polygon -1 true false 135 195 119 235 95 218 76 210 46 204 60 165
+Polygon -1 true false 75 45 83 77 71 103 86 114 166 78 135 60
+Polygon -7500403 true true 30 136 151 77 226 81 280 119 292 146 292 160 287 170 270 195 195 210 151 212 30 166
+Circle -16777216 true false 215 106 30
+
+flag
+false
+0
+Rectangle -7500403 true true 60 15 75 300
+Polygon -7500403 true true 90 150 270 90 90 30
+Line -7500403 true 75 135 90 135
+Line -7500403 true 75 45 90 45
+
+flower
+false
+0
+Polygon -10899396 true false 135 120 165 165 180 210 180 240 150 300 165 300 195 240 195 195 165 135
+Circle -7500403 true true 85 132 38
+Circle -7500403 true true 130 147 38
+Circle -7500403 true true 192 85 38
+Circle -7500403 true true 85 40 38
+Circle -7500403 true true 177 40 38
+Circle -7500403 true true 177 132 38
+Circle -7500403 true true 70 85 38
+Circle -7500403 true true 130 25 38
+Circle -7500403 true true 96 51 108
+Circle -16777216 true false 113 68 74
+Polygon -10899396 true false 189 233 219 188 249 173 279 188 234 218
+Polygon -10899396 true false 180 255 150 210 105 210 75 240 135 240
+
+house
+false
+0
+Rectangle -7500403 true true 45 120 255 285
+Rectangle -16777216 true false 120 210 180 285
+Polygon -7500403 true true 15 120 150 15 285 120
+Line -16777216 false 30 120 270 120
+
+leaf
+false
+0
+Polygon -7500403 true true 150 210 135 195 120 210 60 210 30 195 60 180 60 165 15 135 30 120 15 105 40 104 45 90 60 90 90 105 105 120 120 120 105 60 120 60 135 30 150 15 165 30 180 60 195 60 180 120 195 120 210 105 240 90 255 90 263 104 285 105 270 120 285 135 240 165 240 180 270 195 240 210 180 210 165 195
+Polygon -7500403 true true 135 195 135 240 120 255 105 255 105 285 135 285 165 240 165 195
+
+line
+true
+0
+Line -7500403 true 150 0 150 300
+
+line half
+true
+0
+Line -7500403 true 150 0 150 150
+
+pentagon
+false
+0
+Polygon -7500403 true true 150 15 15 120 60 285 240 285 285 120
+
+person
+false
+0
+Circle -7500403 true true 110 5 80
+Polygon -7500403 true true 105 90 120 195 90 285 105 300 135 300 150 225 165 300 195 300 210 285 180 195 195 90
+Rectangle -7500403 true true 127 79 172 94
+Polygon -7500403 true true 195 90 240 150 225 180 165 105
+Polygon -7500403 true true 105 90 60 150 75 180 135 105
+
+plant
+false
+0
+Rectangle -7500403 true true 135 90 165 300
+Polygon -7500403 true true 135 255 90 210 45 195 75 255 135 285
+Polygon -7500403 true true 165 255 210 210 255 195 225 255 165 285
+Polygon -7500403 true true 135 180 90 135 45 120 75 180 135 210
+Polygon -7500403 true true 165 180 165 210 225 180 255 120 210 135
+Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
+Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
+Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
+
+sheep
+false
+15
+Circle -1 true true 203 65 88
+Circle -1 true true 70 65 162
+Circle -1 true true 150 105 120
+Polygon -7500403 true false 218 120 240 165 255 165 278 120
+Circle -7500403 true false 214 72 67
+Rectangle -1 true true 164 223 179 298
+Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
+Circle -1 true true 3 83 150
+Rectangle -1 true true 65 221 80 296
+Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
+Polygon -7500403 true false 276 85 285 105 302 99 294 83
+Polygon -7500403 true false 219 85 210 105 193 99 201 83
+
+square
+false
+0
+Rectangle -7500403 true true 30 30 270 270
+
+square 2
+false
+0
+Rectangle -7500403 true true 30 30 270 270
+Rectangle -16777216 true false 60 60 240 240
+
+star
+false
+0
+Polygon -7500403 true true 151 1 185 108 298 108 207 175 242 282 151 216 59 282 94 175 3 108 116 108
+
+target
+false
+0
+Circle -7500403 true true 0 0 300
+Circle -16777216 true false 30 30 240
+Circle -7500403 true true 60 60 180
+Circle -16777216 true false 90 90 120
+Circle -7500403 true true 120 120 60
+
+tree
+false
+0
+Circle -7500403 true true 118 3 94
+Rectangle -6459832 true false 120 195 180 300
+Circle -7500403 true true 65 21 108
+Circle -7500403 true true 116 41 127
+Circle -7500403 true true 45 90 120
+Circle -7500403 true true 104 74 152
+
+triangle
+false
+0
+Polygon -7500403 true true 150 30 15 255 285 255
+
+triangle 2
+false
+0
+Polygon -7500403 true true 150 30 15 255 285 255
+Polygon -16777216 true false 151 99 225 223 75 224
+
+truck
+false
+0
+Rectangle -7500403 true true 4 45 195 187
+Polygon -7500403 true true 296 193 296 150 259 134 244 104 208 104 207 194
+Rectangle -1 true false 195 60 195 105
+Polygon -16777216 true false 238 112 252 141 219 141 218 112
+Circle -16777216 true false 234 174 42
+Rectangle -7500403 true true 181 185 214 194
+Circle -16777216 true false 144 174 42
+Circle -16777216 true false 24 174 42
+Circle -7500403 false true 24 174 42
+Circle -7500403 false true 144 174 42
+Circle -7500403 false true 234 174 42
+
+turtle
+true
+0
+Polygon -10899396 true false 215 204 240 233 246 254 228 266 215 252 193 210
+Polygon -10899396 true false 195 90 225 75 245 75 260 89 269 108 261 124 240 105 225 105 210 105
+Polygon -10899396 true false 105 90 75 75 55 75 40 89 31 108 39 124 60 105 75 105 90 105
+Polygon -10899396 true false 132 85 134 64 107 51 108 17 150 2 192 18 192 52 169 65 172 87
+Polygon -10899396 true false 85 204 60 233 54 254 72 266 85 252 107 210
+Polygon -7500403 true true 119 75 179 75 209 101 224 135 220 225 175 261 128 261 81 224 74 135 88 99
+
+wheel
+false
+0
+Circle -7500403 true true 3 3 294
+Circle -16777216 true false 30 30 240
+Line -7500403 true 150 285 150 15
+Line -7500403 true 15 150 285 150
+Circle -7500403 true true 120 120 60
+Line -7500403 true 216 40 79 269
+Line -7500403 true 40 84 269 221
+Line -7500403 true 40 216 269 79
+Line -7500403 true 84 40 221 269
+
+wolf
+false
+0
+Polygon -16777216 true false 253 133 245 131 245 133
+Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
+Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
+
+x
+false
+0
+Polygon -7500403 true true 270 75 225 30 30 225 75 270
+Polygon -7500403 true true 30 75 75 30 270 225 225 270
+@#$#@#$#@
+NetLogo 3D 6.1.0
+@#$#@#$#@
+@#$#@#$#@
+@#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="100" runMetricsEveryStep="false">
+    <setup>set-up</setup>
+    <go>go</go>
+    <metric>home_score</metric>
+    <metric>away_score</metric>
+    <metric>steals</metric>
+    <metric>tover</metric>
+    <metric>sum [offrebound] of players</metric>
+    <metric>sum [defrebound] of players</metric>
+    <metric>sum [attempts] of players with [home? = true]</metric>
+    <metric>sum [attempts] of players with [home? = false]</metric>
+    <metric>[score] of player 0</metric>
+    <metric>[score] of player 5</metric>
+    <metric>[attempts] of player 0</metric>
+    <metric>[attempts] of player 5</metric>
+    <metric>max_lead</metric>
+    <metric>max_streak</metric>
+    <metric>lead_changes</metric>
+    <metric>sum [made] of players with [home? = true]</metric>
+    <metric>sum [made] of players with [home? = false]</metric>
+    <enumeratedValueSet variable="bias_to_gun">
+      <value value="0"/>
+      <value value="0.33"/>
+      <value value="0.66"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="away_gun">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hot_hand_factor">
+      <value value="0"/>
+      <value value="0.33"/>
+      <value value="0.66"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="streak_size">
+      <value value="2"/>
+      <value value="3"/>
+      <value value="4"/>
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="home_gun">
+      <value value="0"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="verf" repetitions="50" runMetricsEveryStep="false">
+    <setup>set-up</setup>
+    <go>go</go>
+    <metric>home_score</metric>
+    <metric>away_score</metric>
+    <metric>max_lead</metric>
+    <metric>max_streak</metric>
+    <metric>lead_changes</metric>
+    <enumeratedValueSet variable="hot_hand_factor">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="away_gun">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="streak_size">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bias_to_gun">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="home_gun">
+      <value value="0"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="verf?" repetitions="2" runMetricsEveryStep="false">
+    <setup>set-up</setup>
+    <go>go</go>
+    <metric>home_score</metric>
+    <metric>away_score</metric>
+    <metric>max_lead</metric>
+    <metric>max_streak</metric>
+    <metric>lead_changes</metric>
+    <enumeratedValueSet variable="hot_hand_factor">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="away_gun">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="streak_size">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bias_to_gun">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="home_gun">
+      <value value="0"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
+@#$#@#$#@
+@#$#@#$#@
+default
+0.0
+-0.2 0 0.0 1.0
+0.0 1 1.0 0.0
+0.2 0 0.0 1.0
+link direction
+true
+0
+Line -7500403 true 150 150 90 180
+Line -7500403 true 150 150 210 180
+@#$#@#$#@
+0
+@#$#@#$#@
