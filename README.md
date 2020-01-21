@@ -5,7 +5,7 @@ The growth of sports analytics (SA) has raised numerous research topics across a
 
 **Keywords**: agent-based modeling, sports analytics, hot-hand effect. 
 
-## Whats in this Project?
+## What is in this Project?
 * [Basketball Agent-based model (needs NetLogo 6.1.0 3D)](Basketball_ABM.nlogo3d)
 * [Overview, Design concepts, and Details (ODD) for the model](ODD_basketball.pdf)
 * [Final Paper](FinalPaper.pdf)
